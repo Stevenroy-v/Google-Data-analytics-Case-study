@@ -1,0 +1,669 @@
+---
+title: "Bike ride share success - case study"
+author: "Steven"
+date: "2024-07-16"
+output:
+  word_document: default
+  html_document: default
+---
+---
+title: "Bike ride share - case study"
+author: "Steven Roy V"
+date: "2024-07-04"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+DATA PREPARATION
+
+```{r}
+jan=read.csv("//Users//lipikas//Downloads//cycfiles//202301-divvy-tripdata.csv")
+feb=read.csv("//Users//lipikas//Downloads//cycfiles//202302-divvy-tripdata.csv")
+mar=read.csv("//Users//lipikas//Downloads//cycfiles//202303-divvy-tripdata.csv")
+apr=read.csv("//Users//lipikas//Downloads//cycfiles//202304-divvy-tripdata.csv")
+may=read.csv("//Users//lipikas//Downloads//cycfiles//202305-divvy-tripdata.csv")
+jun=read.csv("//Users//lipikas//Downloads//cycfiles//202306-divvy-tripdata.csv")
+jul=read.csv("//Users//lipikas//Downloads//cycfiles//202307-divvy-tripdata.csv")
+aug=read.csv("//Users//lipikas//Downloads//cycfiles//202308-divvy-tripdata.csv")
+sep=read.csv("//Users//lipikas//Downloads//cycfiles//202309-divvy-tripdata.csv")
+oct=read.csv("//Users//lipikas//Downloads//cycfiles//202310-divvy-tripdata.csv")
+nov=read.csv("//Users//lipikas//Downloads//cycfiles//202311-divvy-tripdata.csv")
+dec=read.csv("//Users//lipikas//Downloads//cycfiles//202312-divvy-tripdata.csv")
+```
+
+```{r}
+
+library(dplyr)
+# List all your dataframes
+dataframes_list <- list(jan, feb, mar, apr, may, jun, jul, aug, sep, oct, nov, dec)
+
+# Combine all dataframes into a single dataframe
+combined_data <- bind_rows(dataframes_list)
+
+# View the combined dataframe
+print(combined_data)
+```
+```{r}
+# Export the dataframe to a CSV file
+write.csv(combined_data, '/Users/lipikas/Downloads/combined_data.csv', row.names = FALSE)
+
+```
+
+```{r}
+write.csv(combined_data, '/Users/lipikas/Downloads/combined_data1.csv', row.names = FALSE)
+```
+
+
+```{r}
+#importing data
+combined_data=read.csv('//Users//lipikas//Downloads//combined_data1.csv')
+combined_data
+```
+
+
+
+
+DATA CLEANING
+
+```{r}
+library(dplyr)
+#delete columns which are not needed.
+combined_data<- combined_data %>%  
+  select(-c(start_station_id, end_station_id,start_lat,start_lng,end_lat,end_lng)) 
+print(head(combined_data))
+
+```
+```{r}
+# Count duplicates in ride_id
+duplicate_count = sum(duplicated(combined_data$ride_id))
+duplicate_count 
+```
+There are no duplicate ride id.
+
+```{r}
+#delete na values
+# Replace empty strings with NA (if any)
+combined_data[combined_data == ""] = NA
+
+# Calculate NA count for each column
+na_count_table = sapply(combined_data, function(col) sum(is.na(col)))
+
+# Convert to data frame for a table view
+na_count_df = data.frame(Column = names(na_count_table), NA_Count = as.integer(na_count_table))
+
+# Print the NA count table
+print(na_count_df)
+
+na_count = sum(is.na(combined_data))
+na_count # total null values
+
+#Remove null values
+combined_data = na.omit(combined_data)
+print(nrow(combined_data))
+
+```
+
+Total number of rows = 5,719,877
+A total of 1804918 null values were found and were removed.
+Total number of rows after data cleaning = 4332069
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+DATA TRANSFORMATION
+
+```{r}
+# Convert started_at and ended_at columns to DateTime format
+combined_data$started_at <- as.POSIXct(combined_data$started_at, format = "%Y-%m-%d %H:%M:%S")
+combined_data$ended_at <- as.POSIXct(combined_data$ended_at , format = "%Y-%m-%d %H:%M:%S")
+
+# Print the first few rows of the dataframe to verify
+print(head(combined_data))
+```
+```{r}
+#calculate ride length
+
+#create new columns to show the ride length in mins and hours
+combined_data$ride_length_mins <- as.numeric(difftime(combined_data$ended_at, combined_data$started_at, units = "mins"))
+combined_data$ride_length_hours <- as.numeric(difftime(combined_data$ended_at, combined_data$started_at, units = "hours"))
+
+# Round off minutes to the nearest whole number
+combined_data$ride_length_mins_rounded <- round(combined_data$ride_length_mins)
+# Round off hours to two decimal places
+combined_data$ride_length_hours_rounded <- round(combined_data$ride_length_hours, 2)
+
+# Print the resulting dataframe
+print(combined_data)
+```
+
+
+```{r}
+# Define intervals
+intervals <- c(1000, 900, 800, 700, 600, 500, 400, 300, 200, 100, 50, 10)
+
+# Initialize vector to store counts
+counts <- numeric(length(intervals) - 1)
+
+# Count values for each interval
+for (i in seq_along(intervals[-1])) {
+  counts[i] <- sum(combined_data$ride_length_mins_rounded > intervals[i + 1] & 
+                    combined_data$ride_length_mins_rounded <= intervals[i], na.rm = TRUE)
+}
+
+# Print the counts
+for (i in seq_along(intervals[-1])) {
+  cat("Number of values between", intervals[i + 1], "and", intervals[i], ":", counts[i], "\n")
+}
+
+# Print the count for values between 0 and 10
+cat("Number of values between 0 and 10:", count_between_0_and_10, "\n")
+# Optionally, you can remove values within each interval if needed
+# For example, to remove values between 1000 and 900:
+# combined_data <- combined_data[combined_data$ride_length_mins_rounded <= 1000 & combined_data$ride_length_mins_rounded > 900, ]
+# Count values less than to or equal 0
+count_less_than_0 <- sum(combined_data$ride_length_mins_rounded < 0, na.rm = TRUE)
+count_equal_to_0 <- sum(combined_data$ride_length_mins_rounded == 0, na.rm = TRUE)
+
+# Count values between 0 and 10
+count_between_0_and_10 <- sum(combined_data$ride_length_mins_rounded >= 0 & 
+                              combined_data$ride_length_mins_rounded <= 10, na.rm = TRUE)
+
+# Count values greater than 1000
+count_greater_than_1000 <- sum(combined_data$ride_length_mins_rounded > 1000, na.rm = TRUE)
+
+# Print the count for values less than 0
+cat("Number of values less than 0:", count_less_than_0, "\n")
+# Print the count for values less than 0
+cat("Number of values equal to 0:", count_equal_to_0, "\n")
+
+
+# Print the count for values greater than 1000
+cat("Number of values greater than 1000:", count_greater_than_1000, "\n")
+
+# Create a boxplot to visualize the distribution
+library(ggplot2)
+ggplot(combined_data, aes(y = ride_length_mins_rounded)) +
+  geom_boxplot() +
+  labs(title = "Boxplot of Ride Length (Minutes) by Interval Ranges")
+
+```
+The above mentioned values shows the ride length in mins in those specified ranges and we can see that the majority of the values 96% of the data points lie in the range 0-50 mins .
+Hence i am considering the other data points as outliers and proceed with the analysis.
+
+
+
+
+
+```{r}
+nrow(combined_data)
+```
+
+
+DATA ANALYSIS
+
+```{r}
+#Add additional columns for analysis
+
+library(lubridate)
+library(hms)
+
+#create column for start date of the ride
+combined_data$start_date <- as.Date(combined_data$started_at) #default format is yyyy-mm-dd, use start date
+
+#create column for day of the week start date of the ride 
+combined_data$day_of_week <- wday(combined_data$started_at) 
+#Sunday - 1 ... Saturday - 7
+
+#create column for day of the week start date of the ride
+combined_data$day_of_weekk <- format(as.Date(combined_data$start_date), "%A") 
+
+#create column for month of start date of the ride
+combined_data$Month <- format(as.Date(combined_data$start_date), "%m")#create column for month
+
+#cyclistic_date$day <- format(as.Date(cyclistic_date$date), "%d") #create column for day
+#cyclistic_date$year <- format(as.Date(cyclistic_date$date), "%Y") #create column for year
+
+#cyclistic_date$time <- format(as.Date(cyclistic_date$date), "%H:%M:%S") #format time as HH:MM:SS
+
+#create new column to find out which hour of the day was the ride started
+combined_data$time <- as_hms((combined_data$started_at)) 
+combined_data$hour<- hour(combined_data$time)
+
+#group the day time to morning afternoon and evening and night
+
+# Define time periods
+combined_data$time_of_day <- with(combined_data, 
+                                   case_when(
+                                     hour >= 0 & hour < 6  ~ "Night",
+                                     hour >= 6 & hour < 12 ~ "Morning",
+                                     hour >= 12 & hour < 18 ~ "Afternoon",
+                                     hour >= 18 & hour < 24 ~ "Evening"
+                                   ))
+
+
+#group seasons of the year as srping summer fall winter
+# Create a column for different seasons
+combined_data$season <- case_when(
+  combined_data$Month %in% c("03", "04", "05") ~ "Spring",
+  combined_data$Month %in% c("06", "07", "08") ~ "Summer",
+  combined_data$Month %in% c("09", "10", "11") ~ "Fall",
+  combined_data$Month %in% c("12", "01", "02") ~ "Winter"
+)
+print(head(combined_data))
+nrow(combined_data)
+```
+
+```{r}
+tabl_data = combined_data[,c('rideable_type','member_casual','ride_length_mins_rounded','ride_length_hours_rounded','day_of_week','day_of_weekk','hour','time_of_day','Month','season','start_station_name','end_station_name')]
+
+print(head(tabl_data))
+NROW((tabl_data))
+```
+
+
+```{r}
+#write.csv(tabl_data, '/Users/lipikas/Downloads/tabl_data.csv', row.names = FALSE)
+
+```
+
+
+
+
+```{r}
+# Remove extreme values  ride lengths less than or equal to 0 and greater than 50 minutes
+combined_data <- combined_data[combined_data$ride_length_mins_rounded > 0 & combined_data$ride_length_mins_rounded <= 50, ]
+
+# Print the cleaned dataframe to verify
+print(head(combined_data))
+NROW((combined_data))
+```
+
+
+
+
+
+DATA ANALYSIS
+
+```{r}
+#create a new dataframe for analysis with variables necessary
+
+analysis_data = combined_data[,c('rideable_type','member_casual','ride_length_mins_rounded','ride_length_hours_rounded','day_of_week','day_of_weekk','hour','time_of_day','Month','season')]
+
+print(head(analysis_data))
+NROW((analysis_data))
+```
+
+
+Basic eda plots
+
+
+```{r}
+library(ggplot2)
+
+
+# Histogram
+ggplot(analysis_data, aes(x = ride_length_mins_rounded)) +
+  geom_histogram(binwidth = 5, fill = "blue", color = "black") +
+  labs(title = "Histogram of Ride Length (Minutes)", x = "Ride Length (Minutes)", y = "Frequency")
+
+# Create bins for ride lengths
+analysis_data$ride_length_bin <- cut(analysis_data$ride_length_mins_rounded, breaks = seq(0, max(analysis_data$ride_length_mins_rounded, na.rm = TRUE), by = 10))
+
+# Bar plot
+ggplot(analysis_data, aes(x = ride_length_bin)) +
+  geom_bar(fill = "blue", color = "black") +
+  labs(title = "Bar Plot of Ride Length (Minutes)", x = "Ride Length (Minutes)", y = "Count") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+# Density plot
+ggplot(analysis_data, aes(x = ride_length_mins_rounded)) +
+  geom_density(fill = "blue", alpha = 0.5) +
+  labs(title = "Density Plot of Ride Length (Minutes)", x = "Ride Length (Minutes)", y = "Density")
+
+```
+
+```{r}
+#write.csv(analysis_data, '/Users/lipikas/Downloads/analysis_data_modified.csv', row.names = FALSE)
+```
+
+
+Average, Min, Max, and Frequency Count of Ride Length by Month and Grouped by Casual or Member
+
+```{r}
+# Load necessary libraries
+library(dplyr)
+library(ggplot2)
+
+# Sample dataframe structure
+# analysis_data <- data.frame(ride_length_mins_rounded, member_casual, Month, season, day_of_week, time_of_day)
+
+# Calculate the summary statistics
+monthly_summary <- analysis_data %>%
+  group_by(Month, member_casual) %>%
+  summarize(
+    avg_ride_length = mean(ride_length_mins_rounded, na.rm = TRUE),
+    min_ride_length = min(ride_length_mins_rounded, na.rm = TRUE),
+    max_ride_length = max(ride_length_mins_rounded, na.rm = TRUE),
+    freq_count = n()
+  )
+
+# View the summary table
+print(monthly_summary)
+
+# Plotting the summary statistics
+ggplot(monthly_summary, aes(x = Month, y = avg_ride_length, fill = member_casual)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  labs(title = "Average Ride Length by Month and Membership Type", x = "Month", y = "Average Ride Length (mins)")
+
+```
+Average, Min, Max, and Frequency Count of Ride Length by Season and Grouped by Casual or Member
+
+
+```{r}
+# Calculate the summary statistics
+seasonal_summary <- analysis_data %>%
+  group_by(season, member_casual) %>%
+  summarize(
+    avg_ride_length = mean(ride_length_mins_rounded, na.rm = TRUE),
+    min_ride_length = min(ride_length_mins_rounded, na.rm = TRUE),
+    max_ride_length = max(ride_length_mins_rounded, na.rm = TRUE),
+    freq_count = n()
+  )
+
+# View the summary table
+print(seasonal_summary)
+
+# Plotting the summary statistics
+ggplot(seasonal_summary, aes(x = season, y = avg_ride_length, fill = member_casual)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  labs(title = "Average Ride Length by Season and Membership Type", x = "Season", y = "Average Ride Length (mins)")
+
+```
+Average, Min, Max, and Frequency Count of Ride Length by Days of the Week and Grouped by Casual or Member
+
+
+
+```{r}
+# Calculate the summary statistics
+day_of_week_summary <- analysis_data %>%
+  group_by(day_of_week, member_casual) %>%
+  summarize(
+    avg_ride_length = mean(ride_length_mins_rounded, na.rm = TRUE),
+    min_ride_length = min(ride_length_mins_rounded, na.rm = TRUE),
+    max_ride_length = max(ride_length_mins_rounded, na.rm = TRUE),
+    freq_count = n()
+  )
+
+# View the summary table
+print(day_of_week_summary)
+
+# Plotting the summary statistics
+ggplot(day_of_week_summary, aes(x = day_of_week, y = avg_ride_length, fill = member_casual)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  labs(title = "Average Ride Length by Day of Week and Membership Type", x = "Day of Week", y = "Average Ride Length (mins)")
+
+```
+
+
+
+Average, Min, Max, and Frequency Count of Ride Length by Time of the Day and Grouped by Casual or Member
+```{r}
+# Calculate the summary statistics
+time_of_day_summary <- analysis_data %>%
+  group_by(time_of_day, member_casual) %>%
+  summarize(
+    avg_ride_length = mean(ride_length_mins_rounded, na.rm = TRUE),
+    min_ride_length = min(ride_length_mins_rounded, na.rm = TRUE),
+    max_ride_length = max(ride_length_mins_rounded, na.rm = TRUE),
+    freq_count = n()
+  )
+
+# View the summary table
+print(time_of_day_summary)
+
+# Plotting the summary statistics
+ggplot(time_of_day_summary, aes(x = time_of_day, y = avg_ride_length, fill = member_casual)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  labs(title = "Average Ride Length by Time of Day and Membership Type", x = "Time of Day", y = "Average Ride Length (mins)")
+
+```
+```{r}
+library(dplyr)
+library(ggplot2)
+
+# Assuming 'analysis_data' is your dataframe
+
+# Total count of data
+total_count <- nrow(analysis_data)
+print(paste("Total count of data:", total_count))
+
+# Count of data for each month
+monthly_count <- analysis_data %>%
+  group_by(Month) %>%
+  summarise(count = n())
+
+print("Count of data for each month:")
+print(monthly_count)
+
+# 1. Ride Length Descriptive Statistics by Customer Type
+ride_length_stats <- analysis_data %>%
+  group_by(member_casual) %>%
+  summarise(
+    min_ride_length = min(ride_length_mins_rounded, na.rm = TRUE),
+    max_ride_length = max(ride_length_mins_rounded, na.rm = TRUE),
+    freq_count = n()
+  )
+
+print("Ride Length Descriptive Statistics by Customer Type:")
+print(ride_length_stats)
+
+# Plotting the frequency count of rides by customer type
+ggplot(ride_length_stats, aes(x = member_casual, y = freq_count, fill = member_casual)) +
+  geom_bar(stat = "identity") +
+  labs(title = "Frequency Count of Rides by Customer Type", x = "Customer Type", y = "Frequency Count") +
+  theme_minimal()
+
+# 2. Monthly Analysis by Customer Type
+monthly_stats <- analysis_data %>%
+  group_by(Month, member_casual) %>%
+  summarise(
+    min_ride_length = min(ride_length_mins_rounded, na.rm = TRUE),
+    max_ride_length = max(ride_length_mins_rounded, na.rm = TRUE),
+    freq_count = n()
+  )
+
+print("Monthly Analysis by Customer Type:")
+print(monthly_stats)
+
+# Plotting the frequency count of rides by month and customer type
+ggplot(monthly_stats, aes(x = Month, y = freq_count, fill = member_casual)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  labs(title = "Frequency Count of Rides by Month and Customer Type", x = "Month", y = "Frequency Count") +
+  theme_minimal()
+
+# 3. Seasonal Analysis by Customer Type
+seasonal_stats <- analysis_data %>%
+  group_by(season, member_casual) %>%
+  summarise(
+    min_ride_length = min(ride_length_mins_rounded, na.rm = TRUE),
+    max_ride_length = max(ride_length_mins_rounded, na.rm = TRUE),
+    freq_count = n()
+  )
+
+print("Seasonal Analysis by Customer Type:")
+print(seasonal_stats)
+
+# Plotting the frequency count of rides by season and customer type
+ggplot(seasonal_stats, aes(x = season, y = freq_count, fill = member_casual)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  labs(title = "Frequency Count of Rides by Season and Customer Type", x = "Season", y = "Frequency Count") +
+  theme_minimal()
+
+# 4. Day of the Week Analysis by Customer Type
+day_stats <- analysis_data %>%
+  group_by(day_of_week, member_casual) %>%
+  summarise(
+    min_ride_length = min(ride_length_mins_rounded, na.rm = TRUE),
+    max_ride_length = max(ride_length_mins_rounded, na.rm = TRUE),
+    freq_count = n()
+  )
+
+print("Day of the Week Analysis by Customer Type:")
+print(day_stats)
+
+# Plotting the frequency count of rides by day of the week and customer type
+ggplot(day_stats, aes(x = day_of_week, y = freq_count, fill = member_casual)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  labs(title = "Frequency Count of Rides by Day of the Week and Customer Type", x = "Day of the Week", y = "Frequency Count") +
+  theme_minimal()
+
+# 5. Time of Day Analysis by Customer Type
+time_stats <- analysis_data %>%
+  group_by(time_of_day, member_casual) %>%
+  summarise(
+    min_ride_length = min(ride_length_mins_rounded, na.rm = TRUE),
+    max_ride_length = max(ride_length_mins_rounded, na.rm = TRUE),
+    freq_count = n()
+  )
+
+print("Time of Day Analysis by Customer Type:")
+print(time_stats)
+
+# Plotting the frequency count of rides by time of day and customer type
+ggplot(time_stats, aes(x = time_of_day, y = freq_count, fill = member_casual)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  labs(title = "Frequency Count of Rides by Time of Day and Customer Type", x = "Time of Day", y = "Frequency Count") +
+  theme_minimal()
+
+```
+
+```{r}
+library(dplyr)
+library(ggplot2)
+library(scales)
+
+# Assuming 'analysis_data' is your dataframe
+
+# Total count of data
+total_count <- nrow(analysis_data)
+print(paste("Total count of data:", total_count))
+
+# Count of data for each month
+monthly_count <- analysis_data %>%
+  group_by(Month) %>%
+  summarise(count = n())
+
+print("Count of data for each month:")
+print(monthly_count)
+
+# 1. Ride Length Descriptive Statistics by Customer Type
+ride_length_stats <- analysis_data %>%
+  group_by(member_casual) %>%
+  summarise(
+    min_ride_length = min(ride_length_mins_rounded, na.rm = TRUE),
+    max_ride_length = max(ride_length_mins_rounded, na.rm = TRUE),
+    freq_count = n()
+  )
+
+print("Ride Length Descriptive Statistics by Customer Type:")
+print(ride_length_stats)
+
+# Plotting the frequency count of rides by customer type
+ggplot(ride_length_stats, aes(x = member_casual, y = freq_count, fill = member_casual)) +
+  geom_bar(stat = "identity") +
+  scale_y_continuous(labels = comma) +
+  labs(title = "Frequency Count of Rides by Customer Type", x = "Customer Type", y = "Frequency Count") +
+  theme_minimal()
+
+# 2. Monthly Analysis by Customer Type
+monthly_stats <- analysis_data %>%
+  group_by(Month, member_casual) %>%
+  summarise(
+    min_ride_length = min(ride_length_mins_rounded, na.rm = TRUE),
+    max_ride_length = max(ride_length_mins_rounded, na.rm = TRUE),
+    freq_count = n()
+  )
+
+print("Monthly Analysis by Customer Type:")
+print(monthly_stats)
+
+# Plotting the frequency count of rides by month and customer type
+ggplot(monthly_stats, aes(x = Month, y = freq_count, fill = member_casual)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  scale_y_continuous(labels = comma) +
+  labs(title = "Frequency Count of Rides by Month and Customer Type", x = "Month", y = "Frequency Count") +
+  theme_minimal()
+
+# 3. Seasonal Analysis by Customer Type
+seasonal_stats <- analysis_data %>%
+  group_by(season, member_casual) %>%
+  summarise(
+    min_ride_length = min(ride_length_mins_rounded, na.rm = TRUE),
+    max_ride_length = max(ride_length_mins_rounded, na.rm = TRUE),
+    freq_count = n()
+  )
+
+print("Seasonal Analysis by Customer Type:")
+print(seasonal_stats)
+
+# Plotting the frequency count of rides by season and customer type
+ggplot(seasonal_stats, aes(x = season, y = freq_count, fill = member_casual)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  scale_y_continuous(labels = comma) +
+  labs(title = "Frequency Count of Rides by Season and Customer Type", x = "Season", y = "Frequency Count") +
+  theme_minimal()
+
+# 4. Day of the Week Analysis by Customer Type
+day_stats <- analysis_data %>%
+  group_by(day_of_week, member_casual) %>%
+  summarise(
+    min_ride_length = min(ride_length_mins_rounded, na.rm = TRUE),
+    max_ride_length = max(ride_length_mins_rounded, na.rm = TRUE),
+    freq_count = n()
+  )
+
+print("Day of the Week Analysis by Customer Type:")
+print(day_stats)
+
+# Plotting the frequency count of rides by day of the week and customer type
+ggplot(day_stats, aes(x = day_of_week, y = freq_count, fill = member_casual)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  scale_y_continuous(labels = comma) +
+  labs(title = "Frequency Count of Rides by Day of the Week and Customer Type", x = "Day of the Week", y = "Frequency Count") +
+  theme_minimal()
+
+# 5. Time of Day Analysis by Customer Type
+time_stats <- analysis_data %>%
+  group_by(time_of_day, member_casual) %>%
+  summarise(
+    min_ride_length = min(ride_length_mins_rounded, na.rm = TRUE),
+    max_ride_length = max(ride_length_mins_rounded, na.rm = TRUE),
+    freq_count = n()
+  )
+
+print("Time of Day Analysis by Customer Type:")
+print(time_stats)
+
+# Plotting the frequency count of rides by time of day and customer type
+ggplot(time_stats, aes(x = time_of_day, y = freq_count, fill = member_casual)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  scale_y_continuous(labels = comma) +
+  labs(title = "Frequency Count of Rides by Time of Day and Customer Type", x = "Time of Day", y = "Frequency Count") +
+  theme_minimal()
+
+```
+
